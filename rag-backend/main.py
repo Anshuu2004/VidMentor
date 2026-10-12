@@ -1,15 +1,16 @@
 from config import (
     GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE, TOP_K, TIME_WINDOW_SEC,
-    TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, CACHE_DIR,
+    TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, 
 )
 from embeddings import embedder
 from chunking import chunk_transcript
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import faiss, os, pickle, time
+import faiss, time
 from groq import Groq
 from transcript import get_transcript
+from cache import video_cache, save_to_disk, load_from_disk
 
 app = FastAPI()
 
@@ -24,8 +25,6 @@ app.add_middleware(
 
 groq_client = Groq(api_key=GROQ_API_KEY)  # set as env var, never hardcode
 
-os.makedirs(CACHE_DIR, exist_ok=True)
-video_cache = {}
 chat_sessions = {}
 
 
@@ -40,18 +39,7 @@ def build_index_for_video(video_id):
     index.add(embeddings)
     return (chunks, index), None
 
-def save_to_disk(video_id, chunks, index):
-    faiss.write_index(index, f"{CACHE_DIR}/{video_id}.index")
-    with open(f"{CACHE_DIR}/{video_id}_chunks.pkl", "wb") as f:
-        pickle.dump(chunks, f)
 
-def load_from_disk(video_id):
-    idx_path, chunks_path = f"{CACHE_DIR}/{video_id}.index", f"{CACHE_DIR}/{video_id}_chunks.pkl"
-    if os.path.exists(idx_path) and os.path.exists(chunks_path):
-        with open(chunks_path, "rb") as f:
-            chunks = pickle.load(f)
-        return chunks, faiss.read_index(idx_path)
-    return None
 
 def get_or_build_index(video_id):
     if video_id in video_cache:
