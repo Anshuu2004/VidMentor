@@ -1,17 +1,14 @@
 from config import (
     GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE, TOP_K, TIME_WINDOW_SEC,
-    TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, 
+    TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES,
 )
 from embeddings import embedder
-from chunking import chunk_transcript
+from indexer import get_or_build_index
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import faiss, time
+import time
 from groq import Groq
-from transcript import get_transcript
-from cache import video_cache, save_to_disk, load_from_disk
-
 app = FastAPI()
 
 # Chrome extensions call from "chrome-extension://<id>" origin — allow that
@@ -28,33 +25,6 @@ groq_client = Groq(api_key=GROQ_API_KEY)  # set as env var, never hardcode
 chat_sessions = {}
 
 
-# ---------- Index build + cache ----------
-def build_index_for_video(video_id):
-    transcript, error = get_transcript(video_id)
-    if transcript is None:
-        return None, error
-    chunks = chunk_transcript(transcript)
-    embeddings = embedder.encode([c["text"] for c in chunks], convert_to_numpy=True, normalize_embeddings=True)
-    index = faiss.IndexFlatIP(embeddings.shape[1])
-    index.add(embeddings)
-    return (chunks, index), None
-
-
-
-def get_or_build_index(video_id):
-    if video_id in video_cache:
-        return video_cache[video_id], None
-    disk_result = load_from_disk(video_id)
-    if disk_result:
-        video_cache[video_id] = disk_result
-        return disk_result, None
-    result, error = build_index_for_video(video_id)
-    if result is None:
-        return None, error
-    chunks, index = result
-    save_to_disk(video_id, chunks, index)
-    video_cache[video_id] = (chunks, index)
-    return (chunks, index), None
 
 # ---------- Retrieval ----------
 # fixed time-window chunking strategy like timestamp based
