@@ -1,6 +1,8 @@
-from dotenv import load_dotenv
-load_dotenv()
-
+from config import (
+    GROQ_API_KEY, EMBEDDING_MODEL, LLM_MODEL, LLM_TEMPERATURE,
+    PREFERRED_LANGS, WINDOW_SEC, TOP_K, TIME_WINDOW_SEC,
+    TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, CACHE_DIR,
+)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -20,16 +22,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))  # set as env var, never hardcode
+embedder = SentenceTransformer(EMBEDDING_MODEL)
+groq_client = Groq(api_key=GROQ_API_KEY)  # set as env var, never hardcode
 
-CACHE_DIR = "rag_cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
 video_cache = {}
 chat_sessions = {}
 
 # ---------- Transcript + chunking ----------
-def get_transcript(video_id, preferred_langs=("en", "hi")):
+def get_transcript(video_id, preferred_langs=PREFERRED_LANGS):
     ytt_api = YouTubeTranscriptApi()
     try:
         fetched = ytt_api.fetch(video_id, languages=list(preferred_langs))
@@ -48,7 +49,7 @@ def get_transcript(video_id, preferred_langs=("en", "hi")):
     except Exception as e:
         return None, f"Unexpected error: {e}"
 
-def chunk_transcript(transcript, window_sec=40):
+def chunk_transcript(transcript, window_sec=WINDOW_SEC):
     chunks = []
     current_text, current_start = [], transcript[0]['start']
     for seg in transcript:
@@ -101,7 +102,7 @@ def get_or_build_index(video_id):
 
 # ---------- Retrieval ----------
 # fixed time-window chunking strategy like timestamp based
-def retrieve(query, chunks, index, current_time=None, top_k=4, time_window=180):
+def retrieve(query, chunks, index, current_time=None, top_k=TOP_K, time_window=TIME_WINDOW_SEC):
     q_emb = embedder.encode([query], convert_to_numpy=True, normalize_embeddings=True)
     scores, idxs = index.search(q_emb, len(chunks))
     results = []
@@ -110,18 +111,18 @@ def retrieve(query, chunks, index, current_time=None, top_k=4, time_window=180):
         penalty = 0
         if current_time is not None:
             dist = abs(c["start"] - current_time)
-            penalty = max(0, dist - time_window) * 0.001
+            penalty = max(0, dist - time_window) * TIME_PENALTY_PER_SEC
         results.append((score - penalty, c))
     results.sort(key=lambda x: x[0], reverse=True)
     return [c for _, c in results[:top_k]]
 
-def call_groq_with_retry(prompt, max_retries=3):
+def call_groq_with_retry(prompt, max_retries=MAX_RETRIES):
     for attempt in range(max_retries):
         try:
             response = groq_client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+                model=LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
+                temperature=LLM_TEMPERATURE,
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -159,7 +160,7 @@ def chat(req: ChatRequest):
         f"[{int(c['start']//60)}:{int(c['start']%60):02d}] {c['text']}" for c in retrieved
     )
     history = chat_sessions.get(req.video_id, [])
-    history_text = "\n".join(f"{h['role']}: {h['content']}" for h in history[-6:]) or "(no previous messages)"
+    history_text = "\n".join(f"{h['role']}: {h['content']}" for h in history[-HISTORY_MESSAGES:]) or "(no previous messages)"
 
     prompt = f"""You're helping a student who's stuck on a concept while watching a YouTube video.
 Use ONLY the transcript context below to answer. If it's not covered, say so honestly.
