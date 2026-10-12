@@ -3,6 +3,8 @@ from config import WINDOW_SEC
    # Fixed time-window chunking: segments are grouped into windows of about
    # WINDOW_SEC seconds, each chunk tagged with its start/end timestamp.
 def chunk_transcript(transcript, window_sec=WINDOW_SEC):
+    if not transcript:
+        return []
     chunks = []
     current_text, current_start = [], transcript[0]['start']
     for seg in transcript:
