@@ -2,4 +2,4 @@ venv/
 .env
 rag_cache/
 __pycache__/
-*.pyc
+*.pyc.pytest_cache/
