@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
-from config import HISTORY_MESSAGES
 from indexer import get_or_build_index
 from retrieval import retrieve
 from llm import call_groq_with_retry
+from prompts import build_prompt
+from schemas import IndexRequest, ChatRequest
 
 app = FastAPI()
 
@@ -18,17 +18,6 @@ app.add_middleware(
 )
 
 chat_sessions = {}
-
-
-# ---------- API models ----------
-class IndexRequest(BaseModel):
-    video_id: str
-
-
-class ChatRequest(BaseModel):
-    video_id: str
-    query: str
-    current_time: float | None = None
 
 
 # ---------- Endpoints ----------
@@ -48,25 +37,8 @@ def chat(req: ChatRequest):
     chunks, index = result
 
     retrieved = retrieve(req.query, chunks, index, req.current_time)
-    context = "\n\n".join(
-        f"[{int(c['start']//60)}:{int(c['start']%60):02d}] {c['text']}" for c in retrieved
-    )
     history = chat_sessions.get(req.video_id, [])
-    history_text = "\n".join(f"{h['role']}: {h['content']}" for h in history[-HISTORY_MESSAGES:]) or "(no previous messages)"
-
-    prompt = f"""You're helping a student who's stuck on a concept while watching a YouTube video.
-Use ONLY the transcript context below to answer. If it's not covered, say so honestly.
-If the question refers to earlier conversation (like "it"/"that"), use the history to resolve it.
-
-Transcript context:
-{context}
-
-Conversation so far:
-{history_text}
-
-Student's new question: {req.query}
-
-Answer clearly and concisely, referencing the timestamp if helpful:"""
+    prompt = build_prompt(retrieved, history, req.query)
 
     answer = call_groq_with_retry(prompt)
     history.append({"role": "user", "content": req.query})
