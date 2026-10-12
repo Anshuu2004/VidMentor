@@ -9,6 +9,8 @@ def build_index_for_video(video_id):
     if transcript is None:
         return None, error
     chunks = chunk_transcript(transcript)
+    if not chunks:
+        return None, "This video's transcript is empty."
     embeddings = embedder.encode([c["text"] for c in chunks], convert_to_numpy=True, normalize_embeddings=True)
     index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings)
