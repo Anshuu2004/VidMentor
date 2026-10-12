@@ -1,14 +1,14 @@
 from config import (
-    GROQ_API_KEY, EMBEDDING_MODEL, LLM_MODEL, LLM_TEMPERATURE,
+    GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE,
     PREFERRED_LANGS, WINDOW_SEC, TOP_K, TIME_WINDOW_SEC,
     TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, CACHE_DIR,
 )
+from embeddings import embedder
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
-from sentence_transformers import SentenceTransformer
 import faiss, os, pickle, time
 from groq import Groq
 
@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-embedder = SentenceTransformer(EMBEDDING_MODEL)
+
 groq_client = Groq(api_key=GROQ_API_KEY)  # set as env var, never hardcode
 
 os.makedirs(CACHE_DIR, exist_ok=True)
