@@ -4,6 +4,7 @@ from config import (
     TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, CACHE_DIR,
 )
 from embeddings import embedder
+from chunking import chunk_transcript
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -49,17 +50,6 @@ def get_transcript(video_id, preferred_langs=PREFERRED_LANGS):
     except Exception as e:
         return None, f"Unexpected error: {e}"
 
-def chunk_transcript(transcript, window_sec=WINDOW_SEC):
-    chunks = []
-    current_text, current_start = [], transcript[0]['start']
-    for seg in transcript:
-        if seg['start'] - current_start > window_sec and current_text:
-            chunks.append({"text": " ".join(current_text), "start": current_start, "end": seg['start']})
-            current_text, current_start = [], seg['start']
-        current_text.append(seg['text'])
-    if current_text:
-        chunks.append({"text": " ".join(current_text), "start": current_start, "end": transcript[-1]['start']})
-    return chunks
 
 # ---------- Index build + cache ----------
 def build_index_for_video(video_id):
