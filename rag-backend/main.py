@@ -1,14 +1,12 @@
-from config import (
-    GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE, TOP_K, TIME_WINDOW_SEC,
-    TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES,
-)
-from embeddings import embedder
-from indexer import get_or_build_index
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import time
-from groq import Groq
+
+from config import HISTORY_MESSAGES
+from indexer import get_or_build_index
+from retrieval import retrieve
+from llm import call_groq_with_retry
+
 app = FastAPI()
 
 # Chrome extensions call from "chrome-extension://<id>" origin — allow that
@@ -19,52 +17,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-groq_client = Groq(api_key=GROQ_API_KEY)  # set as env var, never hardcode
-
 chat_sessions = {}
 
-
-
-# ---------- Retrieval ----------
-# fixed time-window chunking strategy like timestamp based
-def retrieve(query, chunks, index, current_time=None, top_k=TOP_K, time_window=TIME_WINDOW_SEC):
-    q_emb = embedder.encode([query], convert_to_numpy=True, normalize_embeddings=True)
-    scores, idxs = index.search(q_emb, len(chunks))
-    results = []
-    for score, i in zip(scores[0], idxs[0]):
-        c = chunks[i]
-        penalty = 0
-        if current_time is not None:
-            dist = abs(c["start"] - current_time)
-            penalty = max(0, dist - time_window) * TIME_PENALTY_PER_SEC
-        results.append((score - penalty, c))
-    results.sort(key=lambda x: x[0], reverse=True)
-    return [c for _, c in results[:top_k]]
-
-def call_groq_with_retry(prompt, max_retries=MAX_RETRIES):
-    for attempt in range(max_retries):
-        try:
-            response = groq_client.chat.completions.create(
-                model=LLM_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=LLM_TEMPERATURE,
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            if "429" in str(e) and attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
-            else:
-                return f"Groq API error: {e}"
 
 # ---------- API models ----------
 class IndexRequest(BaseModel):
     video_id: str
 
+
 class ChatRequest(BaseModel):
     video_id: str
     query: str
     current_time: float | None = None
+
 
 # ---------- Endpoints ----------
 @app.post("/index")
@@ -73,6 +38,7 @@ def index_video(req: IndexRequest):
     if result is None:
         return {"success": False, "error": error}
     return {"success": True, "message": "Video indexed and ready."}
+
 
 @app.post("/chat")
 def chat(req: ChatRequest):
@@ -108,6 +74,7 @@ Answer clearly and concisely, referencing the timestamp if helpful:"""
     chat_sessions[req.video_id] = history
 
     return {"success": True, "answer": answer}
+
 
 @app.get("/health")
 def health():
