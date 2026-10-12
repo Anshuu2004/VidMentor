@@ -1,4 +1,4 @@
-# YT Doubt Solver❓
+# VidMentor 
 
 A Chrome extension that lets you ask questions about a YouTube video while you're watching it — grounded entirely in that video's own transcript using RAG (Retrieval-Augmented Generation).
 
