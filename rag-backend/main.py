@@ -1,6 +1,5 @@
 from config import (
-    GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE,
-    PREFERRED_LANGS, WINDOW_SEC, TOP_K, TIME_WINDOW_SEC,
+    GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE, TOP_K, TIME_WINDOW_SEC,
     TIME_PENALTY_PER_SEC, MAX_RETRIES, HISTORY_MESSAGES, CACHE_DIR,
 )
 from embeddings import embedder
@@ -8,10 +7,9 @@ from chunking import chunk_transcript
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
 import faiss, os, pickle, time
 from groq import Groq
+from transcript import get_transcript
 
 app = FastAPI()
 
@@ -29,26 +27,6 @@ groq_client = Groq(api_key=GROQ_API_KEY)  # set as env var, never hardcode
 os.makedirs(CACHE_DIR, exist_ok=True)
 video_cache = {}
 chat_sessions = {}
-
-# ---------- Transcript + chunking ----------
-def get_transcript(video_id, preferred_langs=PREFERRED_LANGS):
-    ytt_api = YouTubeTranscriptApi()
-    try:
-        fetched = ytt_api.fetch(video_id, languages=list(preferred_langs))
-        return fetched.to_raw_data(), None
-    except NoTranscriptFound:
-        try:
-            transcript_list = ytt_api.list(video_id)
-            first_available = next(iter(transcript_list))
-            return first_available.fetch().to_raw_data(), None
-        except Exception:
-            return None, "No transcript available in any language for this video."
-    except TranscriptsDisabled:
-        return None, "Captions are disabled for this video."
-    except VideoUnavailable:
-        return None, "Video not found or unavailable."
-    except Exception as e:
-        return None, f"Unexpected error: {e}"
 
 
 # ---------- Index build + cache ----------
