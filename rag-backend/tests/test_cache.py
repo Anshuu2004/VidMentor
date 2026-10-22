@@ -32,3 +32,20 @@ def test_load_unsaved_video_returns_none(tmp_path, monkeypatch):
     result = cache.load_from_disk("never_saved")
 
     assert result is None
+
+
+def test_cache_does_not_reuse_old_model_index(tmp_path, monkeypatch):
+    monkeypatch.setattr(cache, "CACHE_DIR", str(tmp_path))
+
+    video_id = "test_video_model"
+    chunks = [{"text": "Hello world", "start": 0}]
+    index = faiss.IndexFlatIP(4)
+    index.add(np.array([[1.0, 0.0, 0.0, 0.0]], dtype="float32"))
+
+    cache.save_to_disk(video_id, chunks, index, model_name="all-MiniLM-L6-v2")
+
+    result = cache.load_from_disk(video_id, model_name="paraphrase-multilingual-MiniLM-L12-v2")
+    assert result is None
+
+    old_result = cache.load_from_disk(video_id, model_name="all-MiniLM-L6-v2")
+    assert old_result is not None
