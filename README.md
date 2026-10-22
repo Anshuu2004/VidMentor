@@ -31,7 +31,7 @@ FastAPI backend
 | Layer | Tool |
 |---|---|
 | Transcript extraction | `youtube-transcript-api` |
-| Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`, 384-dim) |
+| Embeddings | `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`, 384-dim, configurable) |
 | Vector search | `faiss-cpu` |
 | LLM generation | Groq (`openai/gpt-oss-20b`) |
 | Backend | FastAPI + Uvicorn |
@@ -185,7 +185,7 @@ Deployed on [Render](https://render.com) (free tier):
 ## Known limitations
 
 - **Transcript fetching can fail on cloud hosts.** YouTube blocks many cloud IPs (including Render's free tier), so the deployed backend may return "could not retrieve a transcript". It works from a normal home connection when you run the backend locally. A client-side transcript fetch would avoid this and is a good contribution.
-- **The embedding model is English-focused**, so retrieval on Hindi/Hinglish videos can be weaker. A multilingual model is a planned improvement.
+- **Embedding model configuration:** Configurable via `EMBEDDING_MODEL` in `.env` (defaults to `paraphrase-multilingual-MiniLM-L12-v2` for robust multilingual Hindi/Hinglish and English support).
 - **Chat history is stored per video, not per user**, and resets on restart.
 - **Free-tier hosting:** the server spins down after ~15 minutes of inactivity (first request after idle takes ~30-50s), and the disk is ephemeral, so cached indexes reset on redeploy/restart.
 
@@ -195,7 +195,6 @@ Deployed on [Render](https://render.com) (free tier):
 
 - Overlapping chunk windows (reduce context loss at chunk boundaries)
 - Per-session chat history
-- Multilingual embeddings for Hindi/Hinglish videos
 - Client-side transcript fetching (avoids YouTube IP blocking)
 - Move cache storage to Redis or a persistent volume
 - Voice input for asking doubts

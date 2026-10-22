@@ -1,20 +1,28 @@
 import os
 import pickle
 import faiss
-from config import CACHE_DIR
+from config import CACHE_DIR, EMBEDDING_MODEL
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# In-memory cache: video_id -> (chunks, index)
+# In-memory cache: cache_key -> (chunks, index)
 video_cache = {}
 
-def save_to_disk(video_id, chunks, index):
-    faiss.write_index(index, f"{CACHE_DIR}/{video_id}.index")
-    with open(f"{CACHE_DIR}/{video_id}_chunks.pkl", "wb") as f:
+def get_cache_key(video_id: str, model_name: str | None = None) -> str:
+    if model_name is None:
+        model_name = EMBEDDING_MODEL
+    safe_model = str(model_name).replace("/", "_").replace("\\", "_")
+    return f"{video_id}_{safe_model}"
+
+def save_to_disk(video_id, chunks, index, model_name=None):
+    key = get_cache_key(video_id, model_name)
+    faiss.write_index(index, f"{CACHE_DIR}/{key}.index")
+    with open(f"{CACHE_DIR}/{key}_chunks.pkl", "wb") as f:
         pickle.dump(chunks, f)
 
-def load_from_disk(video_id):
-    idx_path, chunks_path = f"{CACHE_DIR}/{video_id}.index", f"{CACHE_DIR}/{video_id}_chunks.pkl"
+def load_from_disk(video_id, model_name=None):
+    key = get_cache_key(video_id, model_name)
+    idx_path, chunks_path = f"{CACHE_DIR}/{key}.index", f"{CACHE_DIR}/{key}_chunks.pkl"
     if os.path.exists(idx_path) and os.path.exists(chunks_path):
         with open(chunks_path, "rb") as f:
             chunks = pickle.load(f)

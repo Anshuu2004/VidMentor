@@ -2,7 +2,7 @@ import faiss
 from embeddings import embedder
 from chunking import chunk_transcript
 from transcript import get_transcript
-from cache import video_cache, save_to_disk, load_from_disk
+from cache import video_cache, save_to_disk, load_from_disk, get_cache_key
 
 def build_index_for_video(video_id):
     transcript, error = get_transcript(video_id)
@@ -19,16 +19,17 @@ def build_index_for_video(video_id):
 
 
 def get_or_build_index(video_id):
-    if video_id in video_cache:
-        return video_cache[video_id], None
+    cache_key = get_cache_key(video_id)
+    if cache_key in video_cache:
+        return video_cache[cache_key], None
     disk_result = load_from_disk(video_id)
     if disk_result:
-        video_cache[video_id] = disk_result
+        video_cache[cache_key] = disk_result
         return disk_result, None
     result, error = build_index_for_video(video_id)
     if result is None:
         return None, error
     chunks, index = result
     save_to_disk(video_id, chunks, index)
-    video_cache[video_id] = (chunks, index)
+    video_cache[cache_key] = (chunks, index)
     return (chunks, index), None
