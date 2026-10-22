@@ -7,13 +7,15 @@ from groq import (
     APIConnectionError,
     InternalServerError,
     APIStatusError,
-    BadRequestError,
-    AuthenticationError,
-    PermissionDeniedError,
-    NotFoundError,
-    UnprocessableEntityError,
 )
-from config import GROQ_API_KEY, GROQ_TIMEOUT_SEC, LLM_MODEL, LLM_TEMPERATURE, MAX_RETRIES
+from config import (
+    GROQ_API_KEY,
+    GROQ_TIMEOUT_SEC,
+    LLM_MODEL,
+    LLM_TEMPERATURE,
+    MAX_RETRIES,
+    MAX_RETRY_DELAY_SEC,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,33 +28,12 @@ groq_client = Groq(
     max_retries=0,
 )
 
-# Maximum delay between retry attempts in seconds to prevent unbounded backoff
-MAX_RETRY_DELAY_SEC = 8.0
-
 
 def _is_transient_error(exc: Exception) -> bool:
-    """Determine whether an error is transient and should be retried."""
+    """Determine whether an error is transient and should be retried using Groq SDK exception types."""
     if isinstance(exc, (APITimeoutError, RateLimitError, APIConnectionError, InternalServerError)):
         return True
     if isinstance(exc, APIStatusError) and exc.status_code is not None and exc.status_code >= 500:
-        return True
-    # Permanent client errors (4xx except 429) must never be retried
-    if isinstance(
-        exc,
-        (
-            BadRequestError,
-            AuthenticationError,
-            PermissionDeniedError,
-            NotFoundError,
-            UnprocessableEntityError,
-        ),
-    ):
-        return False
-    if isinstance(exc, APIStatusError) and exc.status_code is not None and 400 <= exc.status_code < 500:
-        return False
-    # Fallback pattern matching for mock exceptions or custom subclasses
-    err_str = str(exc).lower()
-    if "429" in err_str or "rate limit" in err_str or "timeout" in err_str:
         return True
     return False
 

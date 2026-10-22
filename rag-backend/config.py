@@ -28,6 +28,8 @@ TIME_PENALTY_PER_SEC = 0.001
 GROQ_TIMEOUT_SEC = float(os.environ.get("GROQ_TIMEOUT_SEC", 30.0))
 # Total attempts allowed for LLM calls (1 initial attempt + up to 2 retries)
 MAX_RETRIES = 3
+# Maximum delay between retry attempts in seconds to prevent unbounded backoff
+MAX_RETRY_DELAY_SEC = 8.0
 HISTORY_MESSAGES = 6
 
 # Cache

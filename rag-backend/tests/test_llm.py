@@ -10,6 +10,7 @@ from groq import (
     BadRequestError,
     AuthenticationError,
     APIConnectionError,
+    InternalServerError,
 )
 import config
 import llm
@@ -53,16 +54,21 @@ def test_configured_timeout_and_zero_sdk_retries_passed_to_client():
 
 
 def test_groq_client_init_uses_config_timeout(monkeypatch):
-    with patch("groq.Groq") as mock_groq_class:
-        monkeypatch.setattr(config, "GROQ_TIMEOUT_SEC", 45.0)
+    orig_timeout = config.GROQ_TIMEOUT_SEC
+    try:
+        with patch("groq.Groq") as mock_groq_class:
+            monkeypatch.setattr(config, "GROQ_TIMEOUT_SEC", 45.0)
+            importlib.reload(llm)
+            mock_groq_class.assert_called_with(
+                api_key=config.GROQ_API_KEY,
+                timeout=45.0,
+                max_retries=0,
+            )
+    finally:
+        monkeypatch.setattr(config, "GROQ_TIMEOUT_SEC", orig_timeout)
         importlib.reload(llm)
-        mock_groq_class.assert_called_with(
-            api_key=config.GROQ_API_KEY,
-            timeout=45.0,
-            max_retries=0,
-        )
-    # Reload again to restore default
-    importlib.reload(llm)
+
+    assert llm.groq_client.timeout == orig_timeout
 
 
 # 2. Transient timeout is retried within attempt limit
@@ -154,6 +160,33 @@ def test_permanent_auth_error_fails_immediately_without_retrying(monkeypatch):
     assert mock_sleep.call_count == 0
 
 
+def test_unrelated_errors_with_keywords_are_not_retried(monkeypatch):
+    mock_sleep = MagicMock()
+    monkeypatch.setattr(time, "sleep", mock_sleep)
+
+    # An unrelated exception containing words like 'timeout' or '429'
+    mock_create = MagicMock(side_effect=RuntimeError("database timeout 429 error"))
+    monkeypatch.setattr(llm.groq_client.chat.completions, "create", mock_create)
+
+    with pytest.raises(RuntimeError):
+        llm.call_groq_with_retry("test prompt", max_retries=3)
+
+    # Must fail immediately on the first attempt without retrying
+    assert mock_create.call_count == 1
+    assert mock_sleep.call_count == 0
+
+
+def test_is_transient_error_uses_only_sdk_classes():
+    assert llm._is_transient_error(make_timeout_error()) is True
+    assert llm._is_transient_error(make_rate_limit_error()) is True
+    assert llm._is_transient_error(APIConnectionError(request=httpx.Request("POST", "https://api.groq.com"))) is True
+    assert llm._is_transient_error(InternalServerError("Server error", response=httpx.Response(500, request=httpx.Request("POST", "https://api.groq.com")), body=None)) is True
+    assert llm._is_transient_error(make_bad_request_error()) is False
+    assert llm._is_transient_error(make_auth_error()) is False
+    assert llm._is_transient_error(RuntimeError("429 rate limit timeout")) is False
+    assert llm._is_transient_error(ValueError("timeout")) is False
+
+
 # 6. Existing rate-limit retry behavior remains appropriate
 def test_rate_limit_retry_recovers_on_next_attempt(monkeypatch):
     mock_sleep = MagicMock()
@@ -203,14 +236,13 @@ def test_retry_sleeps_are_mocked_and_no_real_delays_occur(monkeypatch):
     )
     monkeypatch.setattr(llm.groq_client.chat.completions, "create", mock_create)
 
-    start_time = time.perf_counter()
     result = llm.call_groq_with_retry("test prompt", max_retries=3)
-    elapsed = time.perf_counter() - start_time
 
     assert result == "Instant response"
-    # Even though 1s + 2s = 3s was requested, elapsed real time should be < 0.2s
-    assert elapsed < 0.2
+    # Verify that sleep is intercepted by the mock with expected exponential delays
     assert mock_sleep.call_count == 2
+    assert mock_sleep.call_args_list[0][0][0] == 1.0
+    assert mock_sleep.call_args_list[1][0][0] == 2.0
 
 
 def test_retry_delay_is_bounded_by_max_delay(monkeypatch):
@@ -239,4 +271,3 @@ def test_retry_delay_is_bounded_by_max_delay(monkeypatch):
     assert mock_sleep.call_args_list[1][0][0] == 2.0
     assert mock_sleep.call_args_list[2][0][0] == 4.0
     assert mock_sleep.call_args_list[3][0][0] == 8.0
-
