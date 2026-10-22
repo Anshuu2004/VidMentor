@@ -7,7 +7,7 @@ load_dotenv()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # Models
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 LLM_MODEL = "openai/gpt-oss-20b"
 LLM_TEMPERATURE = 0.3
 
