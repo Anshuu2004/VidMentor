@@ -1,11 +1,16 @@
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from groq import APITimeoutError, RateLimitError
 
 from indexer import get_or_build_index
 from retrieval import retrieve
 from llm import call_groq_with_retry
 from prompts import build_prompt
 from schemas import IndexRequest, ChatRequest
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -18,6 +23,19 @@ app.add_middleware(
 )
 
 chat_sessions = {}
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    """Ensure consistent response contract for HTTP exceptions matching existing conventions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": str(exc.detail),
+            "detail": str(exc.detail),
+        },
+    )
 
 
 # ---------- Endpoints ----------
@@ -40,7 +58,27 @@ def chat(req: ChatRequest):
     history = chat_sessions.get(req.video_id, [])
     prompt = build_prompt(retrieved, history, req.query)
 
-    answer = call_groq_with_retry(prompt)
+    try:
+        answer = call_groq_with_retry(prompt)
+    except APITimeoutError as exc:
+        logger.error("Groq request timed out for video %s: %s", req.video_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request to AI service timed out. Please try again.",
+        )
+    except RateLimitError as exc:
+        logger.error("Groq rate limit reached for video %s: %s", req.video_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service rate limit reached. Please try again later.",
+        )
+    except Exception as exc:
+        logger.error("Groq request failed for video %s: %s", req.video_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="AI service temporarily unavailable. Please try again.",
+        )
+
     history.append({"role": "user", "content": req.query})
     history.append({"role": "assistant", "content": answer})
     chat_sessions[req.video_id] = history
