@@ -131,7 +131,7 @@ Interactive API docs: `http://localhost:8000/docs`
 3. Click **Load unpacked**
 4. Select the `yt-doubt-extension` folder
 
-Go to any YouTube video, refresh the page, and look for the **"❓ Ask Doubt"** button in the bottom-right corner.
+Go to any YouTube video and look for the **"❓ Ask Doubt"** button in the bottom-right corner.
 
 > **Local development:** set `BACKEND_URL` in `yt-doubt-extension/background.js` to `http://localhost:8000`. `manifest.json` already allows both localhost and the deployed backend in `host_permissions`. Please do not commit the localhost URL.
 
