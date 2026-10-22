@@ -3,20 +3,29 @@
   "name": "VidMentor",
   "version": "1.0",
   "description": "Ask questions about the YouTube video you're watching, grounded in its transcript.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
   "host_permissions": [
-  "*://www.youtube.com/*",
-  "https://vidmentor-6ixd.onrender.com/*",
-  "http://localhost:8000/*"
-],
+    "*://www.youtube.com/*",
+    "https://vidmentor-6ixd.onrender.com/*",
+    "http://localhost:8000/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://www.youtube.com/watch*"],
-      "js": ["content.js"],
-      "css": ["content.css"]
+      "matches": [
+        "*://www.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ]
     }
   ],
   "icons": {
