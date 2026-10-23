@@ -1,7 +1,7 @@
 import os
 import pickle
 import faiss
-from config import CACHE_DIR, EMBEDDING_MODEL
+from config import CACHE_DIR, EMBEDDING_MODEL, WINDOW_SEC, OVERLAP_SEC
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -12,7 +12,9 @@ def get_cache_key(video_id: str, model_name: str | None = None) -> str:
     if model_name is None:
         model_name = EMBEDDING_MODEL
     safe_model = str(model_name).replace("/", "_").replace("\\", "_")
-    return f"{video_id}_{safe_model}"
+    # Chunk settings are part of the key, so changing them rebuilds the index
+    # instead of reusing chunks made with the old settings.
+    return f"{video_id}_{safe_model}_w{WINDOW_SEC}_o{OVERLAP_SEC}"
 
 def save_to_disk(video_id, chunks, index, model_name=None):
     key = get_cache_key(video_id, model_name)

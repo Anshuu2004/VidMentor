@@ -16,6 +16,8 @@ PREFERRED_LANGS = ("en", "hi")
 
 # Chunking
 WINDOW_SEC = 40
+# Seconds each chunk repeats from the end of the previous one (0 = no overlap).
+OVERLAP_SEC = int(os.environ.get("OVERLAP_SEC", "0"))
 
 # Retrieval
 TOP_K = 4
