@@ -1,7 +1,10 @@
 import logging
+from collections import OrderedDict
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from config import MAX_CHAT_SESSIONS, MAX_HISTORY_MESSAGES
 from groq import APITimeoutError, RateLimitError
 
 from indexer import get_or_build_index
@@ -22,7 +25,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-chat_sessions = {}
+chat_sessions: OrderedDict[str, list[dict]] = OrderedDict()
+
+
+def _remember(video_id: str, query: str, answer: str) -> None:
+    """Store one exchange, capping the session and evicting old sessions.
+
+    Only the last `PROMPT_HISTORY_MESSAGES` messages feed the prompt anyway, so an
+    unbounded session and an unbounded store are pure memory pressure.
+    """
+    history = chat_sessions.pop(video_id, [])
+    history.append({"role": "user", "content": query})
+    history.append({"role": "assistant", "content": answer})
+    if len(history) > MAX_HISTORY_MESSAGES:
+        del history[: len(history) - MAX_HISTORY_MESSAGES]
+    chat_sessions[video_id] = history
+    while len(chat_sessions) > MAX_CHAT_SESSIONS:
+        chat_sessions.popitem(last=False)
 
 
 @app.exception_handler(HTTPException)
@@ -79,10 +98,7 @@ def chat(req: ChatRequest):
             detail="AI service temporarily unavailable. Please try again.",
         )
 
-    history.append({"role": "user", "content": req.query})
-    history.append({"role": "assistant", "content": answer})
-    chat_sessions[req.video_id] = history
-
+    _remember(req.video_id, req.query, answer)
     return {"success": True, "answer": answer}
 
 

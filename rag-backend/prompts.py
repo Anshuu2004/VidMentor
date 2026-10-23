@@ -1,4 +1,4 @@
-from config import HISTORY_MESSAGES
+from config import PROMPT_HISTORY_MESSAGES
 
 
 def format_context(chunks):
@@ -9,9 +9,9 @@ def format_context(chunks):
 
 
 def format_history(history):
-    """Last HISTORY_MESSAGES messages as 'role: content' lines."""
+    """Last PROMPT_HISTORY_MESSAGES messages as 'role: content' lines."""
     return "\n".join(
-        f"{h['role']}: {h['content']}" for h in history[-HISTORY_MESSAGES:]
+        f"{h['role']}: {h['content']}" for h in history[-PROMPT_HISTORY_MESSAGES:]
     ) or "(no previous messages)"
 
 

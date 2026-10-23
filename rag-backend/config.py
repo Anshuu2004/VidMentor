@@ -32,7 +32,15 @@ GROQ_TIMEOUT_SEC = float(os.environ.get("GROQ_TIMEOUT_SEC", 30.0))
 MAX_RETRIES = 3
 # Maximum delay between retry attempts in seconds to prevent unbounded backoff
 MAX_RETRY_DELAY_SEC = 8.0
-HISTORY_MESSAGES = 6
+# Messages of recent conversation fed into the prompt (kept separate from the
+# in-process memory cap below so prompt length and memory bounds stay independent)
+PROMPT_HISTORY_MESSAGES = 6
+
+# In-process chat memory: cap the messages kept per session and the sessions kept at all
+MAX_HISTORY_MESSAGES = int(os.environ.get("MAX_HISTORY_MESSAGES", "20"))
+# Force even so whole exchanges are never split in half.
+MAX_HISTORY_MESSAGES = (MAX_HISTORY_MESSAGES // 2) * 2
+MAX_CHAT_SESSIONS = int(os.environ.get("MAX_CHAT_SESSIONS", "100"))
 
 # Cache
 CACHE_DIR = "rag_cache"
