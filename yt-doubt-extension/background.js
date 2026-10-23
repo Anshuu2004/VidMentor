@@ -6,10 +6,16 @@ async function parseResponse(res) {
   try {
     const data = await res.json();
     if (!res.ok) {
-      return {
-        success: false,
-        error: data?.error || data?.detail || `Server error (${res.status})`,
-      };
+      // FastAPI 422 responses carry detail as an array of objects, which
+      // would render as "[object Object]" in the widget; only pass strings
+      // through, falling back to a generic message otherwise
+      const err =
+        typeof data?.error === "string"
+          ? data.error
+          : typeof data?.detail === "string"
+            ? data.detail
+            : `Server error (${res.status})`;
+      return { success: false, error: err };
     }
     return data;
   } catch (err) {
@@ -48,9 +54,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.video_id && indexTasks.has(message.video_id)) {
           const indexResult = await indexTasks.get(message.video_id);
           if (!indexResult.success) {
+            // a transient /index failure (e.g. a network blip) should not
+            // fail the first question: drop the failed entry and fall
+            // through to /chat, which rebuilds the index
             indexTasks.delete(message.video_id);
-            sendResponse({ success: false, error: indexResult.error });
-            return;
           }
         }
 
