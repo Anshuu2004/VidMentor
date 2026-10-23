@@ -32,3 +32,46 @@ def test_load_unsaved_video_returns_none(tmp_path, monkeypatch):
     result = cache.load_from_disk("never_saved")
 
     assert result is None
+
+
+def test_cache_does_not_reuse_old_model_index(tmp_path, monkeypatch):
+    monkeypatch.setattr(cache, "CACHE_DIR", str(tmp_path))
+
+    video_id = "test_video_model"
+    chunks = [{"text": "Hello world", "start": 0}]
+    index = faiss.IndexFlatIP(4)
+    index.add(np.array([[1.0, 0.0, 0.0, 0.0]], dtype="float32"))
+
+    cache.save_to_disk(video_id, chunks, index, model_name="all-MiniLM-L6-v2")
+
+    result = cache.load_from_disk(video_id, model_name="paraphrase-multilingual-MiniLM-L12-v2")
+    assert result is None
+
+    old_result = cache.load_from_disk(video_id, model_name="all-MiniLM-L6-v2")
+    assert old_result is not None
+
+def test_cache_key_includes_chunk_settings(monkeypatch):
+    monkeypatch.setattr(cache, "WINDOW_SEC", 40)
+    monkeypatch.setattr(cache, "OVERLAP_SEC", 10)
+    assert cache.get_cache_key("vid", model_name="m").endswith("_w40_o10")
+
+
+def test_changing_chunk_settings_does_not_reuse_old_chunks(tmp_path, monkeypatch):
+    monkeypatch.setattr(cache, "CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(cache, "WINDOW_SEC", 40)
+    monkeypatch.setattr(cache, "OVERLAP_SEC", 0)
+
+    chunks = [{"text": "Hello world", "start": 0}]
+    index = faiss.IndexFlatIP(4)
+    index.add(np.array([[1.0, 0.0, 0.0, 0.0]], dtype="float32"))
+    cache.save_to_disk("vid", chunks, index)
+
+    monkeypatch.setattr(cache, "OVERLAP_SEC", 10)
+    assert cache.load_from_disk("vid") is None
+
+    monkeypatch.setattr(cache, "OVERLAP_SEC", 0)
+    monkeypatch.setattr(cache, "WINDOW_SEC", 60)
+    assert cache.load_from_disk("vid") is None
+
+    monkeypatch.setattr(cache, "WINDOW_SEC", 40)
+    assert cache.load_from_disk("vid") is not None

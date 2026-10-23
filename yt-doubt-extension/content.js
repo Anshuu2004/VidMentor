@@ -1,8 +1,25 @@
 let isSending = false;
+const indexedVideos = new Set();
 
 function getVideoId() {
   const params = new URLSearchParams(window.location.search);
   return params.get("v");
+}
+
+function triggerIndexing() {
+  const videoId = getVideoId();
+  if (!videoId || indexedVideos.has(videoId)) return;
+  indexedVideos.add(videoId);
+
+  try {
+    chrome.runtime.sendMessage({ type: "INDEX", video_id: videoId }, () => {
+      if (chrome.runtime.lastError) {
+        // no-op
+      }
+    });
+  } catch (err) {
+    // Extension context invalidated
+  }
 }
 
 function getVideoElement() {
@@ -19,7 +36,7 @@ function seekTo(seconds) {
   if (video) {
     video.currentTime = seconds;
     const p = video.play();
-    if (p && typeof p.catch === "function") p.catch(() => {});
+    if (p && typeof p.catch === "function") p.catch(() => { });
   }
 }
 
@@ -60,6 +77,7 @@ function createChatWidget() {
     panel.classList.toggle("yt-doubt-open");
     if (panel.classList.contains("yt-doubt-open")) {
       document.getElementById("yt-doubt-input")?.focus();
+      triggerIndexing();
     }
   });
 

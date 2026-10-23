@@ -7,7 +7,7 @@ load_dotenv()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # Models
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 LLM_MODEL = "openai/gpt-oss-20b"
 LLM_TEMPERATURE = 0.3
 
@@ -16,6 +16,8 @@ PREFERRED_LANGS = ("en", "hi")
 
 # Chunking
 WINDOW_SEC = 40
+# Seconds each chunk repeats from the end of the previous one (0 = no overlap).
+OVERLAP_SEC = int(os.environ.get("OVERLAP_SEC", "0"))
 
 # Retrieval
 TOP_K = 4
