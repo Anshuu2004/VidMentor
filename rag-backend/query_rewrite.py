@@ -2,6 +2,7 @@ import logging
 import re
 
 from config import (
+    REWRITE_ENABLED,
     REWRITE_MAX_CHARS,
     REWRITE_MAX_RETRIES,
     REWRITE_MAX_WORDS,
@@ -18,7 +19,7 @@ _WORD_RE = re.compile(r"\w+", re.UNICODE)
 
 def needs_rewrite(query, history):
     """Rewrite only follow-ups: there is history, and the question is short or points back."""
-    if not history:
+    if not REWRITE_ENABLED or not history:
         return False
     words = _WORD_RE.findall(query.lower())
     if len(words) < REWRITE_MAX_WORDS:

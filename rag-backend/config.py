@@ -45,6 +45,8 @@ MAX_CHAT_SESSIONS = int(os.environ.get("MAX_CHAT_SESSIONS", "100"))
 # Query rewriting for follow-up questions (see query_rewrite.py).
 # With no chat history the rewrite is skipped. Otherwise it runs when the question is short
 # or contains a reference word. The LLM call is kept cheap: one attempt, short timeout.
+# Set REWRITE_ENABLED=0 to skip the rewrite (every follow-up costs one extra Groq call).
+REWRITE_ENABLED = os.environ.get("REWRITE_ENABLED", "1").strip().lower() not in ("0", "false", "no", "off")
 REWRITE_MAX_WORDS = 8
 REWRITE_MAX_CHARS = 200
 REWRITE_MAX_RETRIES = 1
