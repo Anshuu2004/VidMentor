@@ -26,6 +26,25 @@ async function parseResponse(res) {
   }
 }
 
+// One random id per browser, created on first use and kept in chrome.storage.local
+// so the backend can keep chat history separate for each user.
+let sessionIdPromise = null;
+
+function getSessionId() {
+  if (!sessionIdPromise) {
+    sessionIdPromise = chrome.storage.local
+      .get("session_id")
+      .then(async (stored) => {
+        if (stored.session_id) return stored.session_id;
+        const id = crypto.randomUUID();
+        await chrome.storage.local.set({ session_id: id });
+        return id;
+      })
+      .catch(() => crypto.randomUUID()); // storage unavailable: per-worker id
+  }
+  return sessionIdPromise;
+}
+
 function indexVideo(videoId) {
   if (!videoId) {
     return Promise.resolve({ success: false, error: "Missing video_id" });
@@ -61,6 +80,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
+        const sessionId = await getSessionId();
         const res = await fetch(`${BACKEND_URL}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -68,6 +88,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             video_id: message.video_id,
             query: message.query,
             current_time: message.current_time,
+            session_id: sessionId,
           }),
         });
         const data = await parseResponse(res);

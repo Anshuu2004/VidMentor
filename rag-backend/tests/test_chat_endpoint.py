@@ -43,7 +43,7 @@ def test_chat_success_preserves_response_contract(client, monkeypatch):
     assert data["answer"] == "Python is a high-level programming language."
 
     # History is updated with the user query and assistant answer
-    history = main.chat_sessions.get("vid_success_1", [])
+    history = main.chat_sessions.get(("vid_success_1", "vid_success_1"), [])
     assert len(history) == 2
     assert history[0] == {"role": "user", "content": "What is Python?"}
     assert history[1] == {"role": "assistant", "content": "Python is a high-level programming language."}
@@ -80,7 +80,7 @@ def test_chat_timeout_failure_returns_504_and_does_not_pollute_history(client, m
     assert "https://api.groq.com" not in data["error"]
 
     # 3. Chat history is NOT contaminated with the failed prompt or error message
-    assert "vid_timeout_1" not in main.chat_sessions or len(main.chat_sessions["vid_timeout_1"]) == 0
+    assert ("vid_timeout_1", "vid_timeout_1") not in main.chat_sessions or len(main.chat_sessions[("vid_timeout_1", "vid_timeout_1")]) == 0
 
 
 def test_chat_rate_limit_failure_returns_503_and_preserves_history(client, monkeypatch):
@@ -102,7 +102,7 @@ def test_chat_rate_limit_failure_returns_503_and_preserves_history(client, monke
     data = response.json()
     assert data.get("success") is False
     assert "error" in data
-    assert "vid_rl_1" not in main.chat_sessions
+    assert ("vid_rl_1", "vid_rl_1") not in main.chat_sessions
 
 
 def test_chat_upstream_error_returns_502_and_preserves_history(client, monkeypatch):
@@ -124,7 +124,7 @@ def test_chat_upstream_error_returns_502_and_preserves_history(client, monkeypat
     data = response.json()
     assert data.get("success") is False
     assert "error" in data
-    assert "vid_upstream_1" not in main.chat_sessions
+    assert ("vid_upstream_1", "vid_upstream_1") not in main.chat_sessions
 
 
 def test_chat_subsequent_request_succeeds_after_failed_attempt(client, monkeypatch):
@@ -145,7 +145,7 @@ def test_chat_subsequent_request_succeeds_after_failed_attempt(client, monkeypat
     assert r2.json() == {"success": True, "answer": "Good answer"}
 
     # History should contain ONLY the second turn, not the first
-    history = main.chat_sessions["vid_retry_hist"]
+    history = main.chat_sessions[("vid_retry_hist", "vid_retry_hist")]
     assert len(history) == 2
     assert history[0]["content"] == "Second question that works"
     assert history[1]["content"] == "Good answer"

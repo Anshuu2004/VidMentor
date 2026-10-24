@@ -194,7 +194,7 @@ Deployed on [Render](https://render.com) (free tier):
 
 - **Transcript fetching can fail on cloud hosts.** YouTube blocks many cloud IPs (including Render's free tier), so the deployed backend may return "could not retrieve a transcript". It works from a normal home connection when you run the backend locally. A client-side transcript fetch would avoid this and is a good contribution.
 - **Embedding model:** By default, `all-MiniLM-L6-v2` is used for lightweight memory footprint (~200MB, well within the 512MB free-tier RAM limit). For Hindi transcripts, `EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2` can be opted into via `.env` (note: sits at ~445MB RAM; Roman-script Hinglish was not tested).
-- **Chat history is stored per video, not per user**, and resets on restart.
+- **Chat history is kept per session and video**, where a session is one id per browser profile (stored in `chrome.storage.local`), and it resets on restart.
 - **Free-tier hosting:** the server spins down after ~15 minutes of inactivity (first request after idle takes ~30-50s), and the disk is ephemeral, so cached indexes reset on redeploy/restart.
 
 ---
@@ -202,7 +202,6 @@ Deployed on [Render](https://render.com) (free tier):
 ## Roadmap
 
 - Overlapping chunk windows (reduce context loss at chunk boundaries)
-- Per-session chat history
 - Multilingual model optimization for low-memory cloud hosts
 - Client-side transcript fetching (avoids YouTube IP blocking)
 - Move cache storage to Redis or a persistent volume
