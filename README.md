@@ -112,11 +112,16 @@ copy .env.example .env           # Windows
 ```
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_TIMEOUT_SEC=30.0
+
+# Optional overrides:
+# MAX_HISTORY_MESSAGES=20   # per-video chat history cap (even numbers only; defaults to 20)
+# MAX_CHAT_SESSIONS=100     # LRU store cap for concurrent sessions (defaults to 100)
 ```
 
 (Free key from [console.groq.com](https://console.groq.com/keys))
 
 `GROQ_TIMEOUT_SEC` configures the per-request Groq API timeout (in seconds) and defaults to `30.0`.
+`MAX_HISTORY_MESSAGES` caps how many messages of chat history are kept per video session (rounded down to the nearest even number so whole exchanges stay intact; default `20`), and `MAX_CHAT_SESSIONS` caps how many video sessions are held in memory at once — the least recently used session is evicted when the store is full (default `100`).
 
 Run it:
 

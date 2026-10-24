@@ -1,4 +1,4 @@
-from config import HISTORY_MESSAGES
+from config import PROMPT_HISTORY_MESSAGES
 from prompts import build_prompt, format_context, format_history
 
 
@@ -12,10 +12,10 @@ def test_empty_history_uses_placeholder():
 
 
 def test_history_keeps_only_the_most_recent_messages():
-    history = [{"role": "user", "content": f"m<{i}>"} for i in range(HISTORY_MESSAGES + 4)]
+    history = [{"role": "user", "content": f"m<{i}>"} for i in range(PROMPT_HISTORY_MESSAGES + 4)]
     text = format_history(history)
     assert "m<0>" not in text
-    assert f"m<{HISTORY_MESSAGES + 3}>" in text
+    assert f"m<{PROMPT_HISTORY_MESSAGES + 3}>" in text
 
 
 def test_prompt_contains_context_and_question():
