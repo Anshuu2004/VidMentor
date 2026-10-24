@@ -25,21 +25,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-chat_sessions: OrderedDict[str, list[dict]] = OrderedDict()
+# keyed by (session_id, video_id) so two users on the same video don't share history
+chat_sessions: OrderedDict[tuple[str, str], list[dict]] = OrderedDict()
 
 
-def _remember(video_id: str, query: str, answer: str) -> None:
+def _remember(key: tuple[str, str], query: str, answer: str) -> None:
     """Store one exchange, capping the session and evicting old sessions.
 
     Only the last `PROMPT_HISTORY_MESSAGES` messages feed the prompt anyway, so an
     unbounded session and an unbounded store are pure memory pressure.
     """
-    history = chat_sessions.pop(video_id, [])
+    history = chat_sessions.pop(key, [])
     history.append({"role": "user", "content": query})
     history.append({"role": "assistant", "content": answer})
     if len(history) > MAX_HISTORY_MESSAGES:
         del history[: len(history) - MAX_HISTORY_MESSAGES]
-    chat_sessions[video_id] = history
+    chat_sessions[key] = history
     while len(chat_sessions) > MAX_CHAT_SESSIONS:
         chat_sessions.popitem(last=False)
 
@@ -55,6 +56,11 @@ async def http_exception_handler(request, exc: HTTPException):
             "detail": str(exc.detail),
         },
     )
+
+
+def _session_key(req: ChatRequest) -> tuple[str, str]:
+    # older extension versions send no session_id, fall back to the video id
+    return (req.session_id or req.video_id, req.video_id)
 
 
 # ---------- Endpoints ----------
@@ -74,7 +80,8 @@ def chat(req: ChatRequest):
     chunks, index = result
 
     retrieved = retrieve(req.query, chunks, index, req.current_time)
-    history = chat_sessions.get(req.video_id, [])
+    key = _session_key(req)
+    history = chat_sessions.get(key, [])
     prompt = build_prompt(retrieved, history, req.query)
 
     try:
@@ -98,7 +105,7 @@ def chat(req: ChatRequest):
             detail="AI service temporarily unavailable. Please try again.",
         )
 
-    _remember(req.video_id, req.query, answer)
+    _remember(key, req.query, answer)
     return {"success": True, "answer": answer}
 
 
