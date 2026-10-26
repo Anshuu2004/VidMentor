@@ -50,5 +50,5 @@ def rewrite_query(query, history):
     if not rewritten or len(rewritten) > REWRITE_MAX_CHARS:
         logger.warning("Query rewrite gave an unusable result, using the original question")
         return query
-    logger.info("Query rewritten: %r -> %r", query, rewritten)
+    logger.debug("Query rewritten: %r -> %r", query, rewritten)
     return rewritten

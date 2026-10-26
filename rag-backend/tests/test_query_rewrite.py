@@ -16,8 +16,10 @@ HISTORY = [
 ]
 
 
-def fail_if_called(*args, **kwargs):
-    raise AssertionError("the LLM should not be called")
+def unexpected_llm_call(*args, **kwargs):
+    # rewrite_query swallows exceptions, so raising here would hide a wrong call.
+    # Returning a different string makes a wrong call change the result instead.
+    return "SHOULD NOT BE USED"
 
 
 # ---------- needs_rewrite ----------
@@ -52,12 +54,12 @@ def test_long_question_with_reference_word_is_rewritten():
 # ---------- rewrite_query ----------
 def test_rewrite_can_be_switched_off(monkeypatch):
     monkeypatch.setattr(query_rewrite, "REWRITE_ENABLED", False)
-    monkeypatch.setattr(query_rewrite, "call_groq_with_retry", fail_if_called)
+    monkeypatch.setattr(query_rewrite, "call_groq_with_retry", unexpected_llm_call)
     assert rewrite_query("why?", HISTORY) == "why?"
 
 
 def test_standalone_question_skips_the_llm(monkeypatch):
-    monkeypatch.setattr(query_rewrite, "call_groq_with_retry", fail_if_called)
+    monkeypatch.setattr(query_rewrite, "call_groq_with_retry", unexpected_llm_call)
     assert rewrite_query("what's its time complexity?", []) == "what's its time complexity?"
 
 
